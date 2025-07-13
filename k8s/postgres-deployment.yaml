@@ -15,8 +15,21 @@ spec:
       containers:
         - name: postgres
           image: postgres:alpine
+          readinessProbe:
+            periodSeconds: 10
+            timeoutSeconds: 30
+            exec:
+              command:
+                - pg_isready
+                - -U
+                - postgres
+                - -d
+                - postgres
           ports:
             - containerPort: 5432
+          env:
+            - name: POSTGRES_PASSWORD
+              value: "yourpassword"
           volumeMounts:
             - name: my-volume
               mountPath: /var/lib/pgsql/data
