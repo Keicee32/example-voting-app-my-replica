@@ -1,0 +1,55 @@
+name: End-to-End Quality Pipeline
+
+on: [push, pull_request]
+
+jobs:
+  # STEP 1: Build the containers
+  build-and-push:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Build Voting App Image
+        run: docker build -t my-repo/vote-app:latest ./vote
+
+  # STEP 2: Parallelized Testing (The "Matrix" Section)
+  test-parallel:
+    needs: build-and-push
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        # We split the 500 tests into 4 logical "shards" or browser types
+        shard: [1, 2, 3, 4]
+        browser: [chromium, firefox]
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Start Voting App via Compose
+        run: docker-compose up -d vote redis db
+
+      - name: Run Sharded Tests (Matrix)
+        # Using -e to pass secrets and targeting the matrix variables
+        run: |
+          docker build -t test-suite ./tests
+          docker run --network="host" \
+            -e TEST_SHARD=${{ matrix.shard }} \
+            -e BROWSER=${{ matrix.browser }} \
+            test-suite npx playwright test --shard=${{ matrix.shard }}/4
+
+  # STEP 3: Secure Deployment (The "SSH" Section)
+  deploy:
+    needs: test-parallel
+    if: github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Deploy to Production via SSH
+        uses: appleboy/ssh-action@v1.0.3
+        with:
+          host: ${{ secrets.SSH_HOST }}
+          username: ${{ secrets.SSH_USER }}
+          key: ${{ secrets.SSH_PRIVATE_KEY }}
+          script: |
+            cd /apps/voting-app
+            docker-compose pull
+            docker-compose up -d --force-recreate
