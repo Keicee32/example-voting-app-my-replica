@@ -7,7 +7,7 @@ jobs:
   build-and-push:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
       - name: Build Voting App Image
         run: docker build -t my-repo/vote-app:latest ./vote
 
@@ -23,7 +23,7 @@ jobs:
         browser: [chromium, firefox]
 
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
 
       - name: Start Voting App via Compose
         run: docker compose up -d vote redis db
